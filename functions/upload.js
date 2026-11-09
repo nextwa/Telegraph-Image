@@ -52,7 +52,10 @@ export async function onRequestPost(context) {
             }
         }
 
-        return jsonResponse([{ 'src': `/file/${shortId || longId}` }]);
+        const imageExtension = /^(jpe?g|png|gif|webp|avif|apng|bmp|ico)$/i.test(fileExtension)
+            ? fileExtension.toLowerCase().replace(/^jpeg$/, 'jpg') : null;
+        const publicId = shortId && imageExtension ? `${shortId}.${imageExtension}` : (shortId || longId);
+        return jsonResponse([{ 'src': `/file/${publicId}` }]);
     } catch (error) {
         console.error('Upload error:', error);
         return jsonResponse({ error: error.message }, { status: 500 });
