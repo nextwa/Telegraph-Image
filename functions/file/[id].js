@@ -5,7 +5,7 @@ import {
     isWhitelisted,
     putMetadata,
 } from "../utils/metadata.js";
-import { isShortUrlsEnabled, looksLikeShortId, resolveShortId } from "../utils/shortlink.js";
+import { isShortUrlsEnabled, resolveShortId } from "../utils/shortlink.js";
 import { getServingProvider } from "../storage/index.js";
 import { getModerationProvider } from "../moderation/index.js";
 
@@ -78,12 +78,17 @@ export async function onRequest(context) {
 // Short ids are resolved before the file URL is built, so short links work for
 // Telegraph-stored files as well as Bot API files.
 async function resolveRequestedId(env, requestedId) {
-    if (!env.img_url || !isShortUrlsEnabled(env) || requestedId.includes('.') || !looksLikeShortId(requestedId)) {
+    if (!env.img_url || !isShortUrlsEnabled(env)) return requestedId;
+    // Optional extension is an alias, not a redirect or image conversion.
+    const match = /^([A-Za-z0-9]{4,16})(?:\.(jpg|jpeg|png|gif|webp|avif|apng|bmp|ico))?$/i.exec(requestedId);
+    if (!match) return requestedId;
+    const target = await resolveShortId(env, match[1]);
+    if (!target) return requestedId;
+    const normalize = value => value.toLowerCase().replace(/^jpeg$/, 'jpg');
+    if (match[2] && normalize(match[2]) !== normalize(target.split('.').pop())) {
         return requestedId;
     }
-
-    const target = await resolveShortId(env, requestedId);
-    return target || requestedId;
+    return target;
 }
 
 // ALLOWED_REFERERS is a comma-separated hostname allowlist ("example.com,*.example.org").
